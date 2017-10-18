@@ -186,7 +186,7 @@ when s_idle						=>		if	(i_mode = "000") and (start = '1') then
 											state_d		<=		s_test_write;
 											wen			<=		'1';
 											cnt_d		<=		(others => '0');
-											address_en	<=		'1';
+											address_en	<=		'0';
 											address_rst <=		'0';
 											endflag		<=		'0';
 											cen_c		<= 		'1';
@@ -210,7 +210,7 @@ when s_write					=>		if (address_int	< MaxAddress ) then
 												state_d		<=		s_write;
 												wen			<=		'0';
 												cnt_d		<=		cnt_q + 1;
-												address_en	<=		'1';
+												address_en	<=		'0';
 												address_rst <=		'0';
 												endflag		<=		'0';
 												cen_c		<= 		'0';
@@ -221,7 +221,7 @@ when s_write					=>		if (address_int	< MaxAddress ) then
 												state_d		<=		s_write;
 												wen			<=		'0';
 												cnt_d		<=		cnt_q + 1;
-												address_en	<=		'0';
+												address_en	<=		'1';
 												address_rst <=		'0';
 												endflag		<=		'0';
 												cen_c		<= 		'0';
@@ -407,7 +407,7 @@ when s_test_write			=>		if (address_int	< MaxAddress ) then
 										prev_addr_en<=		'0';
 										--test_cnt_d  <=		test_cnt_q;
 									else
-										state_d		<=		s_idle;
+										state_d		<=		s_test_read;
 										wen			<=		'1';
 										cnt_d		<=		(others => '0');
 										address_en	<=		'0';
@@ -477,7 +477,7 @@ o_data			<= i_datain when (address_int	< MaxAddress ) and (state_q = s_write) el
 				   sum when (address_int	< MaxAddress ) and (state_q = s_frame_modulation_write) else
 				   tdi_sum when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_col_q < MaxCol - 1) else
 				   i_datain when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_col_q = MaxCol - 1) else
-				   "00000110111101101011" when (address_int	< MaxAddress ) and (state_q = s_test_write) else
+				   "00000110111101101011" when (address_int	< MaxAddress ) and (state_q = s_test_write or state_q = s_test_read) else
 				   (others => '0');
 				   
 o_endflag		<= endflag		;
