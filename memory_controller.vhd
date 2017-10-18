@@ -477,7 +477,8 @@ o_data			<= i_datain when (address_int	< MaxAddress ) and (state_q = s_write) el
 				   sum when (address_int	< MaxAddress ) and (state_q = s_frame_modulation_write) else
 				   tdi_sum when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_col_q < MaxCol - 1) else
 				   i_datain when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_col_q = MaxCol - 1) else
-				   "00000110111101101011" when (address_int	< MaxAddress ) and (state_q = s_test_write or state_q = s_test_read) else
+				   "00000000000000000000" when (address_int	< MaxAddress and address_int mod 2 = 0 ) and (state_q = s_test_write or state_q = s_test_read) else
+				   "11111111111111111111" when (address_int	< MaxAddress and address_int mod 2 = 1 ) and (state_q = s_test_write or state_q = s_test_read) else
 				   (others => '0');
 				   
 o_endflag		<= endflag		;
