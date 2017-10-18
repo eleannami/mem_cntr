@@ -407,7 +407,7 @@ when s_test_write			=>		if (address_int	< MaxAddress ) then
 										prev_addr_en<=		'0';
 										--test_cnt_d  <=		test_cnt_q;
 									else
-										state_d		<=		s_test_read;
+										state_d		<=		s_idle;
 										wen			<=		'1';
 										cnt_d		<=		(others => '0');
 										address_en	<=		'0';
@@ -488,43 +488,4 @@ o_address		<= address_q + 1 when prev_addr_en = '1' else
 o_cen_c			<= cen_c		;
 
 end rtl;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
