@@ -6,4 +6,4 @@
 ---> Write Mode 
 ---> Frame Modulation Mode 
 ---> TDI Mode 
----> Test Mode
+---> Test Mode   (all addresses written then all addresses read)
