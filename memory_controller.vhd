@@ -14,44 +14,43 @@ entity memory_controller is
 generic (
 NDataBits	: integer := 20; 
 NAddress	: integer := 13;
-MaxAddress	: integer := 7168;
 CntBits		: integer := 8;
 MaxCnt		: integer := 256;
 IterBits	: integer := 8; 
 MaxIter		: integer := 256;
-MaxCol		: integer := 56;
 ModeBits	: integer := 3
 );
 
 
 port(
-		i_clk		:	in 	std_logic;
-		i_rstn		:	in 	std_logic;	
-		i_syncrstn	:	in 	std_logic;
-		i_datain	:	in 	std_logic_vector (NDataBits - 1 downto 0);
-		i_mode		:	in 	std_logic_vector (ModeBits - 1 downto 0);
-		i_fm_iter	:	in	std_logic_vector (IterBits - 1 downto 0);
-		i_mem_data	:	in	std_logic_vector (NDataBits - 1 downto 0);
-		i_startflag	:	in 	std_logic;
-		o_cen_c		:	out	std_logic;
-		o_data		:	out std_logic_vector (NDataBits - 1 downto 0);
-		o_endflag	:	out std_logic;
-		o_wen		:	out std_logic;
-		o_address	:	out	std_logic_vector (NAddress - 1 downto 0);
-		o_bwen		:	out std_logic_vector (NDataBits - 1 downto 0);
-		o_t_bypassen:	out std_logic;
-		o_bisten	:	out std_logic;
-		o_t_wen		:	out std_logic;
-		o_t_bwen	:	out std_logic_vector (NDataBits - 1 downto 0);
-		o_t_a		:	out std_logic_vector (NAddress - 1 downto 0);
-		o_t_d		:	out std_logic_vector (NDataBits - 1 downto 0);
-		o_t_cen		:	out std_logic;
-		o_t_scannen	:	out std_logic;
-		o_t_sin		:	out std_logic_vector (4 downto 0);
-		o_t_sout	:	out	std_logic_vector (4 downto 0);
-		o_t_nowren	:	out std_logic;
-		o_t_burnen	:	out	std_logic;
-		o_t_stmc	:	out	std_logic_vector (2 downto 0)
+		i_clk				:	in 	std_logic;
+		i_rstn				:	in 	std_logic;	
+		i_syncrstn			:	in 	std_logic;
+		i_datain			:	in 	std_logic_vector (NDataBits - 1 downto 0);
+		i_mode				:	in 	std_logic_vector (ModeBits - 1 downto 0);
+		i_fm_iter			:	in	std_logic_vector (IterBits - 1 downto 0);
+		i_mem_data			:	in	std_logic_vector (NDataBits - 1 downto 0);
+		i_startflag			:	in 	std_logic;
+		i_pxl_arr_row 		:	in  std_logic_vector (2 downto 0);
+		o_cen_c				:	out	std_logic;
+		o_data				:	out std_logic_vector (NDataBits - 1 downto 0);
+		o_endflag			:	out std_logic;
+		o_wen				:	out std_logic;
+		o_address			:	out	std_logic_vector (NAddress - 1 downto 0);
+		o_bwen				:	out std_logic_vector (NDataBits - 1 downto 0);
+		o_t_bypassen		:	out std_logic;
+		o_bisten			:	out std_logic;
+		o_t_wen				:	out std_logic;
+		o_t_bwen			:	out std_logic_vector (NDataBits - 1 downto 0);
+		o_t_a				:	out std_logic_vector (NAddress - 1 downto 0);
+		o_t_d				:	out std_logic_vector (NDataBits - 1 downto 0);
+		o_t_cen				:	out std_logic;
+		o_t_scannen			:	out std_logic;
+		o_t_sin				:	out std_logic_vector (4 downto 0);
+		o_t_sout			:	out	std_logic_vector (4 downto 0);
+		o_t_nowren			:	out std_logic;
+		o_t_burnen			:	out	std_logic;
+		o_t_stmc			:	out	std_logic_vector (2 downto 0)
 		
 	);
 end memory_controller;
@@ -70,6 +69,8 @@ architecture rtl of memory_controller is
 		signal dataout			:	std_logic_vector ( NDataBits - 1 downto 0);
 		signal address_int		:	integer range 0 to 20000;
 		signal cnt_int			:	integer range 0 to 10000;
+		signal MaxRow			:	integer range 0 to 100;
+		signal MaxAddress		:	integer range 0 to 10000;
 		signal address_en		:	std_logic;
 		signal wen				:	std_logic;
 		signal endflag			:	std_logic;
@@ -81,12 +82,13 @@ architecture rtl of memory_controller is
 		signal starttemp_d		: 	std_logic;
 		signal starttemp_q		:	std_logic;
 		signal start 			:	std_logic;
-		signal cnt_col_q		:	std_logic_vector ( CntBits - 1 downto 0);
-		signal cnt_col_d		:	std_logic_vector ( CntBits - 1 downto 0);
 		signal tdi_sum			:	std_logic_vector ( NDataBits - 1 downto 0);
 		signal prev_addr_en		:	std_logic;
-		--signal test_cnt			:	std_logic_vector ( NDataBits - 1 downto 0);
-		
+		signal iter_cnt_d		:	std_logic_vector ( IterBits - 1 downto 0);
+		signal iter_cnt_q		:	std_logic_vector ( IterBits - 1 downto 0);
+		signal cnt_row_d		:   std_logic_vector ( CntBits - 1 downto 0);
+		signal cnt_row_q		:   std_logic_vector ( CntBits - 1 downto 0);
+
 begin
 
 ff:	process (i_clk, i_rstn)
@@ -97,14 +99,16 @@ begin
 		cnt_q				<=	(others => '0');
 		startflag_q			<=	'0';
 		starttemp_q			<=	'0';
-		cnt_col_q			<=	(others => '0');
+		iter_cnt_q			<=	(others => '0');
+		cnt_row_q			<= 	(others => '0');
 	elsif (i_clk'event and i_clk = '1') then
 		state_q				<=	state_d;
 		address_q			<=	address_d;
 		cnt_q				<=	cnt_d;
 		startflag_q			<=	startflag_d;
 		starttemp_q			<=	starttemp_d;
-		cnt_col_q			<=	cnt_col_d;
+		iter_cnt_q			<=	iter_cnt_d;
+		cnt_row_q			<= 	cnt_row_d;
 	end if;
 end process ff;
 
@@ -131,8 +135,20 @@ sum				<= i_mem_data + i_datain;
 
 tdi_sum			<= i_mem_data +	i_datain;
 
+MaxRow			<= 52 when (i_pxl_arr_row = "100") else
+					48 when (i_pxl_arr_row = "011") else
+					44 when (i_pxl_arr_row = "010") else 
+					40 when (i_pxl_arr_row = "001") else
+					32;
+					
+MaxAddress		<= 7163 when (i_pxl_arr_row = "100") else
+					7159 when (i_pxl_arr_row = "011") else
+					7155 when (i_pxl_arr_row = "010") else 
+					7151 when (i_pxl_arr_row = "001") else
+					7143;
 
-fsm_state:	process (state_q, i_mode,  cnt_q, address_int, cnt_int, start, cnt_col_q)
+					
+fsm_state:	process (state_q, i_mode,  cnt_q, address_int, cnt_int, start, iter_cnt_q, cnt_row_q)
 
 begin
 
@@ -146,9 +162,9 @@ when s_idle						=>		if	(i_mode = "000") and (start = '1') then
 											address_rst <=		'0';
 											endflag		<=		'0';
 											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
 											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
+											iter_cnt_d	<=		(others => '0');
+											cnt_row_d	<=		(others => '0');
 										elsif (i_mode = "001") and (start = '1') then
 											state_d		<=		s_read;
 											wen			<=		'1';
@@ -157,9 +173,9 @@ when s_idle						=>		if	(i_mode = "000") and (start = '1') then
 											address_rst <=		'0';
 											endflag		<=		'0';
 											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
 											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
+											iter_cnt_d	<=		(others => '0');
+											cnt_row_d	<=		(others => '0');
 										elsif (i_mode = "010") and (start = '1') then
 											state_d		<=		s_frame_modulation_read;
 											wen			<=		'1';
@@ -168,9 +184,9 @@ when s_idle						=>		if	(i_mode = "000") and (start = '1') then
 											address_rst <=		'0';
 											endflag		<=		'0';
 											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
 											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
+											iter_cnt_d	<=		(others => '0');
+											cnt_row_d	<=		(others => '0');
 										elsif (i_mode = "011") and (start = '1') then
 											state_d		<=		s_tdi_read;
 											wen			<=		'1';
@@ -179,9 +195,9 @@ when s_idle						=>		if	(i_mode = "000") and (start = '1') then
 											address_rst <=		'0';
 											endflag		<=		'0';
 											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
 											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
+											iter_cnt_d	<=		(others => '0');
+											cnt_row_d	<=		(others => '0');
 										elsif (i_mode = "100") and (start = '1') then
 											state_d		<=		s_test_write;
 											wen			<=		'1';
@@ -190,9 +206,9 @@ when s_idle						=>		if	(i_mode = "000") and (start = '1') then
 											address_rst <=		'0';
 											endflag		<=		'0';
 											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
 											prev_addr_en<=		'0';
-											--test_cnt_d  <=		test_cnt_q;
+											iter_cnt_d	<=		(others => '0');
+											cnt_row_d	<=		(others => '0');
 										else
 											state_d		<=		s_idle;
 											wen			<=		'1';
@@ -201,234 +217,301 @@ when s_idle						=>		if	(i_mode = "000") and (start = '1') then
 											address_rst <=		'0';
 											endflag		<=		'0';
 											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
 											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
+											iter_cnt_d	<=		(others => '0');
+											cnt_row_d	<=		(others => '0');
 										end if;
 when s_write					=>		if (address_int	< MaxAddress ) then
+												if (cnt_int mod 2 = 0) then
+													state_d		<=		s_write;
+													wen			<=		'0';
+													cnt_d		<=		cnt_q + 1;
+													address_en	<=		'0';
+													address_rst <=		'0';
+													endflag		<=		'0';
+													cen_c		<= 		'0';
+													prev_addr_en<=		'0';
+													iter_cnt_d	<=		(others => '0');
+													cnt_row_d	<=		cnt_row_q;
+												else
+													state_d		<=		s_write;
+													wen			<=		'0';
+													cnt_d		<=		cnt_q + 1;
+													address_en	<=		'1';
+													address_rst <=		'0';
+													endflag		<=		'0';
+													cen_c		<= 		'0';
+													prev_addr_en<=		'0';
+													iter_cnt_d	<=		(others => '0');
+													cnt_row_d	<=		cnt_row_q + 1;
+												end if;
+										else
+											state_d		<=		s_idle;
+											wen			<=		'1';
+											cnt_d		<=		(others => '0');
+											address_en	<=		'0';
+											address_rst <=		'1';
+											endflag		<=		'1';
+											cen_c		<= 		'1';
+											prev_addr_en<=		'0';
+											iter_cnt_d	<=		(others => '0');
+											cnt_row_d	<=		(others => '0');
+										end if;
+										
+when s_read					=>		if (address_int	< MaxAddress ) then
+												if (cnt_int mod 2 = 0) then
+													state_d		<=		s_read;
+													wen			<=		'1';
+													cnt_d		<=		cnt_q + 1;
+													address_en	<=		'1';
+													address_rst <=		'0';
+													endflag		<=		'0';
+													cen_c		<= 		'0';
+													prev_addr_en<=		'0';
+													iter_cnt_d	<=		(others => '0');
+													cnt_row_d	<=		cnt_row_q + 1;
+												else
+													state_d		<=		s_read;
+													wen			<=		'1';
+													cnt_d		<=		cnt_q + 1;
+													address_en	<=		'0';
+													address_rst <=		'0';
+													endflag		<=		'0';
+													cen_c		<= 		'0';
+													prev_addr_en<=		'0';
+													iter_cnt_d	<=		(others => '0');
+													cnt_row_d	<=		cnt_row_q;
+												end if;
+									else
+										state_d		<=		s_idle;
+										wen			<=		'1';
+										cnt_d		<=		(others => '0');
+										address_en	<=		'0';
+										address_rst <=		'1';
+										endflag		<=		'1';
+										cen_c		<= 		'1';
+										prev_addr_en<=		'0';
+										iter_cnt_d	<=		(others => '0');
+										cnt_row_d	<=		(others => '0');
+									end if;
+									
+when s_frame_modulation_read => 	if (iter_cnt_q < i_fm_iter) then
+										if (address_int	< MaxAddress ) then
+											state_d		<=		s_frame_modulation_write;
+											wen			<=		'1';
+											cnt_d		<=		cnt_q;
+											address_en	<=		'0';
+											address_rst <=		'0';
+											endflag		<=		'0';
+											cen_c		<= 		'0';
+											prev_addr_en<=		'0';
+											iter_cnt_d	<=		iter_cnt_q;
+											cnt_row_d	<=		cnt_row_q;
+										else
+											state_d		<=		s_frame_modulation_read;
+											wen			<=		'1';
+											cnt_d		<=		cnt_q;
+											address_en	<=		'0';
+											address_rst <=		'1';
+											endflag		<=		'1';
+											cen_c		<= 		'1';
+											prev_addr_en<=		'0';
+											iter_cnt_d	<=		iter_cnt_q + 1;
+											cnt_row_d	<=		(others => '0');
+										end if;
+									else
+										state_d		<=		s_idle;
+										wen			<=		'1';
+										cnt_d		<=		cnt_q;
+										address_en	<=		'0';
+										address_rst <=		'1';
+										endflag		<=		'1';
+										cen_c		<= 		'1';
+										prev_addr_en<=		'0';
+										iter_cnt_d	<=		iter_cnt_q ;
+										cnt_row_d	<=		(others => '0');
+									end if;
+when s_frame_modulation_write => 	if (iter_cnt_q < i_fm_iter) then
+										if (address_int	< MaxAddress ) then
+											state_d		<=		s_frame_modulation_read;
+											wen			<=		'0';
+											cnt_d		<=		cnt_q;
+											address_en	<=		'1';
+											address_rst <=		'0';
+											endflag		<=		'0';
+											cen_c		<= 		'0';
+											prev_addr_en<=		'0';
+											iter_cnt_d	<=		iter_cnt_q;
+											cnt_row_d	<=		cnt_row_q + 1;
+										else
+											state_d		<=		s_frame_modulation_read;
+											wen			<=		'1';
+											cnt_d		<=		cnt_q;
+											address_en	<=		'0';
+											address_rst <=		'0';
+											endflag		<=		'0';
+											cen_c		<= 		'1';
+											prev_addr_en<=		'0';
+											iter_cnt_d	<=		iter_cnt_q + 1 ;
+											cnt_row_d	<=		(others => '0');
+										end if; 
+									else
+										state_d		<=		s_idle;
+										wen			<=		'1';
+										cnt_d		<=		cnt_q;
+										address_en	<=		'0';
+										address_rst <=		'1';
+										endflag		<=		'1';
+										cen_c		<= 		'1';
+										prev_addr_en<=		'0';
+										iter_cnt_d	<=		iter_cnt_q;
+										cnt_row_d	<=		(others => '0');
+									end if;
+when s_tdi_read 	          => 	if (iter_cnt_q < MaxRow) then
+										if (address_int	< MaxAddress ) then
+											state_d		<=		s_tdi_write;
+											wen			<=		'1';
+											cnt_d		<=		cnt_q;
+											address_en	<=		'0';
+											address_rst <=		'0';
+											endflag		<=		'0';
+											cen_c		<= 		'0';
+											prev_addr_en<=		'1';
+											iter_cnt_d	<=		iter_cnt_q;
+											cnt_row_d	<=		cnt_row_q;
+										else
+											state_d		<=		s_tdi_read;
+											wen			<=		'1';
+											cnt_d		<=		cnt_q;
+											address_en	<=		'0';
+											address_rst <=		'1';
+											endflag		<=		'1';
+											cen_c		<= 		'1';
+											prev_addr_en<=		'0';
+											iter_cnt_d	<=		iter_cnt_q + 1;
+											cnt_row_d	<=		(others => '0');
+										end if;
+									else
+										state_d		<=		s_idle;
+										wen			<=		'1';
+										cnt_d		<=		cnt_q;
+										address_en	<=		'0';
+										address_rst <=		'1';
+										endflag		<=		'1';
+										cen_c		<= 		'1';
+										prev_addr_en<=		'0';
+										iter_cnt_d	<=		(others => '0');
+										cnt_row_d	<=		(others => '0');
+									end if;
+when s_tdi_write			  =>	if (iter_cnt_q < MaxRow) then	
+										if (address_int	< MaxAddress ) then
+											if (cnt_row_q < MaxRow - 1)then
+												state_d		<=		s_tdi_read;
+												wen			<=		'0';
+												cnt_d		<=		cnt_q;
+												address_en	<=		'1';
+												address_rst <=		'0';
+												endflag		<=		'0';
+												cen_c		<= 		'0';
+												prev_addr_en<=		'0';
+												iter_cnt_d	<=		iter_cnt_q;
+												cnt_row_d	<=		cnt_row_q + 1;
+											else
+												state_d		<=		s_tdi_read;
+												wen			<=		'0';
+												cnt_d		<=		cnt_q;
+												address_en	<=		'1';
+												address_rst <=		'0';
+												endflag		<=		'0';
+												cen_c		<= 		'0';
+												prev_addr_en<=		'0';
+												iter_cnt_d	<=		iter_cnt_q;
+												cnt_row_d	<=		(others => '0');
+											end if;
+										else
+											state_d		<=		s_tdi_read;
+											wen			<=		'1';
+											cnt_d		<=		cnt_q;
+											address_en	<=		'0';
+											address_rst <=		'1';
+											endflag		<=		'1';
+											cen_c		<= 		'1';
+											prev_addr_en<=		'0';
+											iter_cnt_d	<=		iter_cnt_q + 1;
+											cnt_row_d	<=		(others => '0');
+										end if;
+									else
+										state_d		<=		s_idle;
+										wen			<=		'1';
+										cnt_d		<=		cnt_q;
+										address_en	<=		'0';
+										address_rst <=		'1';
+										endflag		<=		'1';
+										cen_c		<= 		'1';
+										prev_addr_en<=		'0';
+										iter_cnt_d	<=		(others => '0');
+										cnt_row_d	<=		(others => '0');
+									end if;
+when s_test_write			=>		if (address_int	< MaxAddress ) then
 											if (cnt_int mod 2 = 0) then
-												state_d		<=		s_write;
+												state_d		<=		s_test_write;
 												wen			<=		'0';
 												cnt_d		<=		cnt_q + 1;
 												address_en	<=		'0';
 												address_rst <=		'0';
 												endflag		<=		'0';
 												cen_c		<= 		'0';
-												cnt_col_d	<=		cnt_col_q;
 												prev_addr_en<=		'0';
-												--test_cnt_d  <=		(others => '0');
+												iter_cnt_d	<=		(others => '0');
+												cnt_row_d	<=		cnt_row_q;
 											else
-												state_d		<=		s_write;
+												state_d		<=		s_test_write;
 												wen			<=		'0';
 												cnt_d		<=		cnt_q + 1;
 												address_en	<=		'1';
 												address_rst <=		'0';
 												endflag		<=		'0';
 												cen_c		<= 		'0';
-												cnt_col_d	<=		cnt_col_q;
 												prev_addr_en<=		'0';
-												--test_cnt_d  <=		(others => '0');
+												iter_cnt_d	<=		(others => '0');
+												cnt_row_d	<=		cnt_row_q + 1;
 											end if;
-										else
-											state_d		<=		s_idle;
-											wen			<=		'1';
-											cnt_d		<=		(others => '0');
-											address_en	<=		'0';
-											address_rst <=		'1';
-											endflag		<=		'1';
-											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
-											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
-										end if;
-when s_read					=>		if (address_int	< MaxAddress ) then
-											if (cnt_int mod 2 = 0) then
-												state_d		<=		s_read;
-												wen			<=		'1';
-												cnt_d		<=		cnt_q + 1;
-												address_en	<=		'1';
-												address_rst <=		'0';
-												endflag		<=		'0';
-												cen_c		<= 		'0';
-												cnt_col_d	<=		cnt_col_q;
-												prev_addr_en<=		'0';
-												--test_cnt_d  <=		(others => '0');
-											else
-												state_d		<=		s_read;
-												wen			<=		'1';
-												cnt_d		<=		cnt_q + 1;
-												address_en	<=		'1';
-												address_rst <=		'0';
-												endflag		<=		'0';
-												cen_c		<= 		'0';
-												cnt_col_d	<=		cnt_col_q;
-												prev_addr_en<=		'0';
-												--test_cnt_d  <=		(others => '0');
-											end if;
-										else
-											state_d		<=		s_idle;
-											wen			<=		'1';
-											cnt_d		<=		(others => '0');
-											address_en	<=		'0';
-											address_rst <=		'1';
-											endflag		<=		'1';
-											cen_c		<= 		'1';
-											cnt_col_d	<=		cnt_col_q;
-											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
-										end if;
-when s_frame_modulation_read => 	if (address_int	< MaxAddress ) then
-										state_d		<=		s_frame_modulation_write;
-										wen			<=		'1';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'0';
-										address_rst <=		'0';
-										endflag		<=		'0';
-										cen_c		<= 		'0';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
 									else
-										state_d		<=		s_idle;
-										wen			<=		'1';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'0';
-										address_rst <=		'1';
-										endflag		<=		'1';
-										cen_c		<= 		'1';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
-									end if;
-when s_frame_modulation_write => 	if (address_int	< MaxAddress ) then
-										state_d		<=		s_frame_modulation_read;
-										wen			<=		'0';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'1';
-										address_rst <=		'0';
-										endflag		<=		'0';
-										cen_c		<= 		'0';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
-									else
-										state_d		<=		s_idle;
-										wen			<=		'1';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'0';
-										address_rst <=		'0';
-										endflag		<=		'0';
-										cen_c		<= 		'1';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
-									end if; 
-when s_tdi_read 	          => 	if (address_int	< MaxAddress ) then
-										if (cnt_col_q < MaxCol - 1) then
-											state_d		<=		s_tdi_write;
-											wen			<=		'1';
-											cnt_d		<=		cnt_q;
-											address_en	<=		'0';
-											address_rst <=		'0';
-											endflag		<=		'0';
-											cen_c		<= 		'0';
-											cnt_col_d	<=		cnt_col_q;
-											prev_addr_en<=		'1';
-											--test_cnt_d  <=		(others => '0');
-										else
-											state_d		<=		s_tdi_write;
-											wen			<=		'1';
-											cnt_d		<=		cnt_q;
-											address_en	<=		'0';
-											address_rst <=		'0';
-											endflag		<=		'0';
-											cen_c		<= 		'0';
-											cnt_col_d	<=		cnt_col_q;
-											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
-										end if;
-									else
-										state_d		<=		s_idle;
-										wen			<=		'1';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'0';
-										address_rst <=		'1';
-										endflag		<=		'1';
-										cen_c		<= 		'1';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
-									end if;
-when s_tdi_write			  =>	if (address_int	< MaxAddress ) then
-										if (cnt_col_q < MaxCol - 1) then
-											state_d		<=		s_tdi_read;
-											wen			<=		'0';
-											cnt_d		<=		cnt_q;
-											address_en	<=		'1';
-											address_rst <=		'0';
-											endflag		<=		'0';
-											cen_c		<= 		'0';
-											cnt_col_d	<=		cnt_col_q + 1;
-											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
-										else
-											state_d		<=		s_tdi_read;
-											wen			<=		'0';
-											cnt_d		<=		cnt_q;
-											address_en	<=		'1';
-											address_rst <=		'0';
-											endflag		<=		'0';
-											cen_c		<= 		'0';
-											cnt_col_d	<=		(others => '0');
-											prev_addr_en<=		'0';
-											--test_cnt_d  <=		(others => '0');
-										end if;
-									else
-										state_d		<=		s_idle;
-										wen			<=		'1';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'0';
-										address_rst <=		'1';
-										endflag		<=		'1';
-										cen_c		<= 		'1';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
-									end if;
-when s_test_write			=>		if (address_int	< MaxAddress ) then
 										state_d		<=		s_test_read;
-										wen			<=		'0';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'0';
-										address_rst <=		'0';
-										endflag		<=		'0';
-										cen_c		<= 		'0';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		test_cnt_q;
-									else
-										state_d		<=		s_idle;
 										wen			<=		'1';
 										cnt_d		<=		(others => '0');
 										address_en	<=		'0';
 										address_rst <=		'1';
 										endflag		<=		'1';
 										cen_c		<= 		'1';
-										cnt_col_d	<=		cnt_col_q;
 										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
+										iter_cnt_d	<=		(others => '0');
+										cnt_row_d	<=		(others => '0');
 									end if;
 when s_test_read			=>		if (address_int	< MaxAddress ) then
-										state_d		<=		s_test_write;
-										wen			<=		'1';
-										cnt_d		<=		cnt_q;
-										address_en	<=		'1';
-										address_rst <=		'0';
-										endflag		<=		'0';
-										cen_c		<= 		'0';
-										cnt_col_d	<=		cnt_col_q;
-										prev_addr_en<=		'0';
-										--test_cnt_d  <=		test_cnt_q + 1;
+												if (cnt_int mod 2 = 0) then
+													state_d		<=		s_test_read;
+													wen			<=		'1';
+													cnt_d		<=		cnt_q + 1;
+													address_en	<=		'1';
+													address_rst <=		'0';
+													endflag		<=		'0';
+													cen_c		<= 		'0';
+													prev_addr_en<=		'0';
+													iter_cnt_d	<=		(others => '0');
+													cnt_row_d	<=		cnt_row_q + 1;
+												else
+													state_d		<=		s_test_read;
+													wen			<=		'1';
+													cnt_d		<=		cnt_q + 1;
+													address_en	<=		'1';
+													address_rst <=		'0';
+													endflag		<=		'0';
+													cen_c		<= 		'0';
+													prev_addr_en<=		'0';
+													iter_cnt_d	<=		(others => '0');
+													cnt_row_d	<=		cnt_row_q;
+												end if;
 									else
 										state_d		<=		s_idle;
 										wen			<=		'1';
@@ -437,46 +520,46 @@ when s_test_read			=>		if (address_int	< MaxAddress ) then
 										address_rst <=		'1';
 										endflag		<=		'1';
 										cen_c		<= 		'1';
-										cnt_col_d	<=		cnt_col_q;
 										prev_addr_en<=		'0';
-										--test_cnt_d  <=		(others => '0');
+										iter_cnt_d	<=		(others => '0');
+										cnt_row_d	<=		(others => '0');
 									end if;
 end case;
 
 end process fsm_state;
 
-o_t_bypassen	<=	'1';				-- useless inputs
-                                       
-o_t_scannen		<=	'1';                -- useless inputs
-                                       
-o_t_nowren		<=	'1';                -- useless inputs
-                                        
-o_t_burnen		<=	'1';                -- useless inputs
-                                        
-o_t_stmc		<=	"000";              -- useless inputs
-                                       
-o_bisten		<=	'0';                -- useless inputs
-                                       
-o_t_wen			<=	'0';                -- useless inputs
-                                        
-o_t_bwen		<= (others => '0');     -- useless inputs
-                                        
-o_t_a			<= (others => '0');     -- useless inputs
-                                       
-o_t_d			<= (others => '0');     -- useless inputs
-                                        
-o_t_cen			<= '0';     			-- useless inputs
-                                       
-o_t_sin			<= (others => '0');     -- useless inputs
-                                      
-o_t_sout		<= (others => '0');     -- useless inputs
-
-o_bwen			<= (others => '0');		-- useless inputs
+o_t_bypassen	<=	'1';				-- default inputs
+                                           
+o_t_scannen		<=	'1';                -- default inputs
+                                           
+o_t_nowren		<=	'1';                -- default inputs
+                                           
+o_t_burnen		<=	'1';                -- default inputs
+                                           
+o_t_stmc		<=	"000";              -- default inputs
+                                           
+o_bisten		<=	'0';                -- default inputs
+                                           
+o_t_wen			<=	'0';                -- default inputs
+                                           
+o_t_bwen		<= (others => '0');     -- default inputs
+                                           
+o_t_a			<= (others => '0');     -- default inputs
+                                           
+o_t_d			<= (others => '0');     -- default inputs
+                                           
+o_t_cen			<= '0';     			-- default inputs
+                                           
+o_t_sin			<= (others => '0');     -- default inputs
+                                           
+o_t_sout		<= (others => '0');     -- default inputs
+                                           
+o_bwen			<= (others => '0');		-- default inputs
 
 o_data			<= i_datain when (address_int	< MaxAddress ) and (state_q = s_write) else
 				   sum when (address_int	< MaxAddress ) and (state_q = s_frame_modulation_write) else
-				   tdi_sum when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_col_q < MaxCol - 1) else
-				   i_datain when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_col_q = MaxCol - 1) else
+				   tdi_sum when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_row_q < MaxRow - 1) else
+				   i_datain when (address_int	< MaxAddress ) and (state_q = s_tdi_write) and (cnt_row_q = MaxRow - 1) else
 				   "00000000000000000000" when (address_int	< MaxAddress and address_int mod 2 = 0 ) and (state_q = s_test_write or state_q = s_test_read) else
 				   "11111111111111111111" when (address_int	< MaxAddress and address_int mod 2 = 1 ) and (state_q = s_test_write or state_q = s_test_read) else
 				   (others => '0');
@@ -488,4 +571,43 @@ o_address		<= address_q + 1 when prev_addr_en = '1' else
 o_cen_c			<= cen_c		;
 
 end rtl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
