@@ -141,11 +141,11 @@ MaxRow			<= 52 when (i_pxl_arr_row = "100") else
 					40 when (i_pxl_arr_row = "001") else
 					32;
 					
-MaxAddress		<= 7163 when (i_pxl_arr_row = "100") else
-					7159 when (i_pxl_arr_row = "011") else
-					7155 when (i_pxl_arr_row = "010") else 
-					7151 when (i_pxl_arr_row = "001") else
-					7143;
+MaxAddress		<= 6656 when (i_pxl_arr_row = "100") else
+					6144 when (i_pxl_arr_row = "011") else
+					5632 when (i_pxl_arr_row = "010") else 
+					5120 when (i_pxl_arr_row = "001") else
+					4096;
 
 					
 fsm_state:	process (state_q, i_mode,  cnt_q, address_int, cnt_int, start, iter_cnt_q, cnt_row_q)
@@ -368,17 +368,30 @@ when s_frame_modulation_write => 	if (iter_cnt_q < i_fm_iter) then
 										cnt_row_d	<=		(others => '0');
 									end if;
 when s_tdi_read 	          => 	if (iter_cnt_q < MaxRow) then
-										if (address_int	< MaxAddress ) then
-											state_d		<=		s_tdi_write;
-											wen			<=		'1';
-											cnt_d		<=		cnt_q;
-											address_en	<=		'0';
-											address_rst <=		'0';
-											endflag		<=		'0';
-											cen_c		<= 		'0';
-											prev_addr_en<=		'1';
-											iter_cnt_d	<=		iter_cnt_q;
-											cnt_row_d	<=		cnt_row_q;
+										if (address_int	< MaxAddress ) then					
+											if (cnt_row_q < MaxRow - 1) then
+												state_d		<=		s_tdi_write;
+												wen			<=		'1';
+												cnt_d		<=		cnt_q;
+												address_en	<=		'0';
+												address_rst <=		'0';
+												endflag		<=		'0';
+												cen_c		<= 		'0';
+												prev_addr_en<=		'1';
+												iter_cnt_d	<=		iter_cnt_q;
+												cnt_row_d	<=		cnt_row_q;
+											else
+												state_d		<=		s_tdi_write;
+												wen			<=		'1';
+												cnt_d		<=		cnt_q;
+												address_en	<=		'0';
+												address_rst <=		'0';
+												endflag		<=		'0';
+												cen_c		<= 		'0';
+												iter_cnt_d	<=		iter_cnt_q;
+												cnt_row_d	<=		cnt_row_q;
+												prev_addr_en<=		'0';
+											end if;
 										else
 											state_d		<=		s_tdi_read;
 											wen			<=		'1';
@@ -387,10 +400,10 @@ when s_tdi_read 	          => 	if (iter_cnt_q < MaxRow) then
 											address_rst <=		'1';
 											endflag		<=		'1';
 											cen_c		<= 		'1';
-											prev_addr_en<=		'0';
 											iter_cnt_d	<=		iter_cnt_q + 1;
-											cnt_row_d	<=		(others => '0');
-										end if;
+											cnt_row_d	<=		cnt_row_q;
+											prev_addr_en<=		'0';
+										end if;									
 									else
 										state_d		<=		s_idle;
 										wen			<=		'1';
@@ -571,43 +584,3 @@ o_address		<= address_q + 1 when prev_addr_en = '1' else
 o_cen_c			<= cen_c		;
 
 end rtl;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
